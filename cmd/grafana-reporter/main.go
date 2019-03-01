@@ -18,27 +18,52 @@ package main
 
 import (
 	"flag"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/IzakMarais/reporter/grafana"
 	"github.com/IzakMarais/reporter/report"
 	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 )
 
 var proto = flag.String("proto", "http://", "Grafana Protocol. Change to 'https://' if Grafana is using https. Reporter will still serve http.")
 var ip = flag.String("ip", "localhost:3000", "Grafana IP and port")
 var port = flag.String("port", ":8686", "Port to serve on")
 var templateDir = flag.String("templates", "templates/", "Directory for custom TeX templates")
+var logFile = flag.String("logfile", "stdout", "File to save log")
+var logLevel = flag.String("loglevel", "INFO", "Set log level use one of ERROR,WARNING,INFO,DEBUG")
 
 func main() {
 	flag.Parse()
-	log.SetOutput(os.Stdout)
-
+	log.SetFormatter(&PlainTextFormatter{})
+	if *logFile == "stdout" {
+		log.SetOutput(os.Stdout)
+	} else {
+		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+		defer f.Close()
+		log.SetOutput(f)
+	}
+	if *logLevel == "ERROR" {
+		log.SetLevel(log.ErrorLevel)
+		log.Println("Log Level: Error")
+	} else if *logLevel == "WARNING" {
+		log.SetLevel(log.WarnLevel)
+		log.Println("Log Level: Warning")
+	} else if *logLevel == "DEBUG" {
+		log.SetLevel(log.DebugLevel)
+		log.Println("Log Level: Debug")
+	} else {
+		log.SetLevel(log.InfoLevel)
+		log.Println("Log Level: Info")
+	}
 	//'generated*'' variables injected from build.gradle: task 'injectGoVersion()'
-	log.Printf("grafana reporter, version: %s.%s-%s hash: %s", generatedMajor, generatedMinor, generatedRelease, generatedGitHash)
-	log.Printf("serving at '%s' and using grafana at '%s'", *port, *ip)
+	log.Info(fmt.Sprintf("grafana reporter, version: %s.%s-%s hash: %s", generatedMajor, generatedMinor, generatedRelease, generatedGitHash))
+	log.Info(fmt.Sprintf("serving at %s and using grafana at %s", *port, *ip))
 
 	router := mux.NewRouter()
 	RegisterHandlers(

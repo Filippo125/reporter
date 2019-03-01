@@ -19,12 +19,13 @@ package report
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
 	"text/template"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/IzakMarais/reporter/grafana"
 	"github.com/pborman/uuid"
@@ -108,7 +109,7 @@ func (rep *report) Title() string {
 func (rep *report) Clean() {
 	err := os.RemoveAll(rep.tmpDir)
 	if err != nil {
-		log.Println("Error cleaning up tmp dir:", err)
+		log.Warning("Error cleaning up tmp dir:", err)
 	}
 }
 
@@ -220,7 +221,7 @@ func (rep *report) runLaTeX() (pdf *os.File, err error) {
 	cmdPre := exec.Command("pdflatex", "-halt-on-error", "-draftmode", reportTexFile)
 	cmdPre.Dir = rep.tmpDir
 	outBytesPre, errPre := cmdPre.CombinedOutput()
-	log.Println("Calling LaTeX - preprocessing")
+	log.Debug("Calling LaTeX - preprocessing")
 	if errPre != nil {
 		err = fmt.Errorf("error calling LaTeX preprocessing: %q. Latex preprocessing failed with output: %s ", errPre, string(outBytesPre))
 		return
@@ -228,7 +229,7 @@ func (rep *report) runLaTeX() (pdf *os.File, err error) {
 	cmd := exec.Command("pdflatex", "-halt-on-error", reportTexFile)
 	cmd.Dir = rep.tmpDir
 	outBytes, err := cmd.CombinedOutput()
-	log.Println("Calling LaTeX and building PDF")
+	log.Debug("Calling LaTeX and building PDF")
 	if err != nil {
 		err = fmt.Errorf("error calling LaTeX: %q. Latex failed with output: %s ", err, string(outBytes))
 		return

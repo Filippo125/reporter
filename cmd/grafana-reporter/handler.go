@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -30,6 +29,7 @@ import (
 	"github.com/IzakMarais/reporter/grafana"
 	"github.com/IzakMarais/reporter/report"
 	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 )
 
 // ServeReportHandler interface facilitates testsing the reportServing http handler
@@ -46,13 +46,13 @@ func RegisterHandlers(router *mux.Router, reportServerV4, reportServerV5 ServeRe
 }
 
 func (h ServeReportHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	log.Print("Reporter called")
+	log.Debug("Reporter called")
 	g := h.newGrafanaClient(*proto+*ip, apiToken(req), dashVariables(req))
 	rep := h.newReport(g, dashID(req), time(req), texTemplate(req))
 
 	file, err := rep.Generate()
 	if err != nil {
-		log.Println("Error generating report:", err)
+		log.Error("Error generating report:", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -62,11 +62,11 @@ func (h ServeReportHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 
 	_, err = io.Copy(w, file)
 	if err != nil {
-		log.Println("Error copying data to response:", err)
+		log.Error("Error copying data to response:", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	log.Println("Report generated correctly")
+	log.Debug("Report generated correctly")
 }
 
 func addFilenameHeader(w http.ResponseWriter, title string) {
@@ -75,7 +75,7 @@ func addFilenameHeader(w http.ResponseWriter, title string) {
 	filename = strings.TrimLeft(filename, "\"")
 	filename = strings.TrimRight(filename, "\"")
 	filename += ".pdf"
-	log.Println("Extracted filename from dashboard title: ", filename)
+	log.Debug("Extracted filename from dashboard title: ", filename)
 	header := fmt.Sprintf("inline; filename=\"%s\"", filename)
 	w.Header().Add("Content-Disposition", header)
 }
@@ -83,20 +83,20 @@ func addFilenameHeader(w http.ResponseWriter, title string) {
 func dashID(r *http.Request) string {
 	vars := mux.Vars(r)
 	d := vars["dashId"]
-	log.Println("Called with dashboard:", d)
+	log.Info("Called with dashboard:", d)
 	return d
 }
 
 func time(r *http.Request) grafana.TimeRange {
 	params := r.URL.Query()
 	t := grafana.NewTimeRange(params.Get("from"), params.Get("to"))
-	log.Println("Called with time range:", t)
+	log.Debug("Called with time range:", t)
 	return t
 }
 
 func apiToken(r *http.Request) string {
 	apiToken := r.URL.Query().Get("apitoken")
-	log.Println("Called with api Token:", apiToken)
+	log.Debug("Called with api Token:", apiToken)
 	return apiToken
 }
 
@@ -104,14 +104,14 @@ func dashVariables(r *http.Request) url.Values {
 	output := url.Values{}
 	for k, v := range r.URL.Query() {
 		if strings.HasPrefix(k, "var-") {
-			log.Println("Called with variable:", k, v)
+			log.Debug("Called with variable:", k, v)
 			for _, singleV := range v {
 				output.Add(k, singleV)
 			}
 		}
 	}
 	if len(output) == 0 {
-		log.Println("Called without variable")
+		log.Debug("Called without variable")
 	}
 	return output
 }
@@ -122,11 +122,11 @@ func texTemplate(r *http.Request) string {
 		return ""
 	}
 	file := filepath.Join(*templateDir, fName+".tex")
-	log.Println("Called with template:", file)
+	log.Debug("Called with template:", file)
 
 	customTemplate, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Printf("Error reading template file: %q", err)
+		log.Error(fmt.Sprintf("Error reading template file: %q", err))
 		return ""
 	}
 

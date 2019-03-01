@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Client is a Grafana API client
@@ -82,7 +83,7 @@ func NewV5Client(grafanaURL string, apiToken string, variables url.Values) Clien
 
 func (g client) GetDashboard(dashName string) (Dashboard, error) {
 	dashURL := g.getDashEndpoint(dashName)
-	log.Println("Connecting to dashboard at", dashURL)
+	log.Debug("Connecting to dashboard at", dashURL)
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", dashURL, nil)
@@ -131,7 +132,7 @@ func (g client) GetPanelPng(p Panel, dashName string, t TimeRange) (io.ReadClose
 
 	for retries := 1; retries < 3 && resp.StatusCode != 200; retries++ {
 		delay := getPanelRetrySleepTime * time.Duration(retries)
-		log.Printf("Error obtaining render for panel %+v, Status: %v, Retrying after %v...", p, resp.StatusCode, delay)
+		log.Error(fmt.Sprintf("Error obtaining render for panel %+v, Status: %v, Retrying after %v...", p, resp.StatusCode, delay))
 		time.Sleep(delay)
 		resp, err = client.Do(req)
 		if err != nil {
@@ -144,7 +145,7 @@ func (g client) GetPanelPng(p Panel, dashName string, t TimeRange) (io.ReadClose
 		if err != nil {
 			panic(err)
 		}
-		log.Println("Error obtaining render:", string(body))
+		log.Debug("Error obtaining render:", string(body))
 		return nil, errors.New("Error obtaining render: " + resp.Status)
 	}
 
@@ -175,6 +176,6 @@ func (g client) getPanelURL(p Panel, dashName string, t TimeRange) string {
 	}
 
 	url := g.getPanelEndpoint(dashName, values)
-	log.Println("Downloading image ", p.Id, url)
+	log.Debug("Downloading image ", p.Id, url)
 	return url
 }
